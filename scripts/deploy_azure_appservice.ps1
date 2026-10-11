@@ -34,6 +34,9 @@
 #   -AuthAdminEmail    (default: daniele.ciminieri@gmail.com; guaranteed admin account)
 #   -AuthSeedPassword  (optional; activates the admin with this password on first boot)
 #   -AuthSessionSecret (optional; auto-generated and preserved in app settings otherwise)
+#   -AuthEmailConnectionString (optional; ACS CommunicationService connection string for reset e-mails)
+#   -AuthEmailSender   (optional; verified sender, e.g. DoNotReply@<guid>.azurecomm.net)
+#   -AuthEmailBaseUrl  (optional; public base URL used in reset links; defaults to request origin)
 
 [CmdletBinding()]
 param(
@@ -42,7 +45,10 @@ param(
     [string]$AuthMode = "local_password",
     [string]$AuthAdminEmail = "daniele.ciminieri@gmail.com",
     [string]$AuthSeedPassword = "",
-    [string]$AuthSessionSecret = ""
+    [string]$AuthSessionSecret = "",
+    [string]$AuthEmailConnectionString = "",
+    [string]$AuthEmailSender = "",
+    [string]$AuthEmailBaseUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -243,6 +249,22 @@ if ($AuthSeedPassword) {
         --name $AppName `
         --settings "EDIM_AUTH_SEED_PASSWORD=$AuthSeedPassword" `
         --output none
+}
+
+if ($AuthEmailConnectionString -and $AuthEmailSender) {
+    az webapp config appsettings set `
+        --resource-group $ResourceGroup `
+        --name $AppName `
+        --settings "EDIM_AUTH_EMAIL_CONNECTION_STRING=$AuthEmailConnectionString" "EDIM_AUTH_EMAIL_SENDER=$AuthEmailSender" "EDIM_AUTH_DEV_TOKEN_DISPLAY=false" `
+        --output none
+    if ($AuthEmailBaseUrl) {
+        az webapp config appsettings set `
+            --resource-group $ResourceGroup `
+            --name $AppName `
+            --settings "EDIM_AUTH_EMAIL_BASE_URL=$AuthEmailBaseUrl" `
+            --output none
+    }
+    Write-Host "Reset e-mails enabled via ACS sender $AuthEmailSender."
 }
 
 az webapp config set `

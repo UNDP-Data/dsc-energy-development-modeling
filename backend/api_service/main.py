@@ -265,6 +265,7 @@ def create_app(
     app.state.completion_bridge = completion_bridge
     app.state.frontend_dir = _discover_frontend_dir(settings)
     app.state.auth_pending_tokens = {}
+    app.state.auth_email_last_sent = {}
     app.state.auth_dev_token_display = bool(getattr(settings, "auth_dev_token_display", True))
     app.state.auth_ready = False
     configure_auth(settings)

@@ -204,7 +204,9 @@ async def forgot_password_submit(
     record = pending.get(str(user.id))
     reset_link = None
     notice = generic
-    if record and getattr(request.app.state, "auth_dev_token_display", False):
+    sent_flags = getattr(request.app.state, "auth_email_last_sent", None) or {}
+    email_sent = bool(sent_flags.get(str(user.id)))
+    if record and not email_sent and getattr(request.app.state, "auth_dev_token_display", False):
         reset_link = f"{_origin(request)}/auth/reset-password?token={record['token']}"
         notice = _notice(
             "info",

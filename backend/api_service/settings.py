@@ -163,6 +163,9 @@ class Settings:
     auth_invite_ttl_seconds: int = 172800
     auth_dev_token_display: bool = True
     auth_admin_email: str = "daniele.ciminieri@gmail.com"
+    auth_email_connection_string: str = ""
+    auth_email_sender: str = ""
+    auth_email_base_url: str = ""
 
 
 def _repo_root() -> Path:
@@ -301,6 +304,9 @@ def get_settings() -> Settings:
         auth_invite_ttl_seconds=_env_int("EDIM_AUTH_INVITE_TTL_SECONDS", int(_cfg(runtime_config, ["auth", "invite_ttl_seconds"], 172800)), minimum=60),
         auth_dev_token_display=_env_bool("EDIM_AUTH_DEV_TOKEN_DISPLAY", bool(_cfg(runtime_config, ["auth", "dev_token_display"], True))),
         auth_admin_email=(os.getenv("EDIM_AUTH_ADMIN_EMAIL") or str(_cfg(runtime_config, ["auth", "admin_email"], "daniele.ciminieri@gmail.com")) or "daniele.ciminieri@gmail.com").strip().lower(),
+        auth_email_connection_string=(os.getenv("EDIM_AUTH_EMAIL_CONNECTION_STRING") or str(_cfg(runtime_config, ["auth", "email_connection_string"], "")) or "").strip(),
+        auth_email_sender=(os.getenv("EDIM_AUTH_EMAIL_SENDER") or str(_cfg(runtime_config, ["auth", "email_sender"], "")) or "").strip(),
+        auth_email_base_url=(os.getenv("EDIM_AUTH_EMAIL_BASE_URL") or str(_cfg(runtime_config, ["auth", "email_base_url"], "")) or "").strip().rstrip("/"),
     )
 
 

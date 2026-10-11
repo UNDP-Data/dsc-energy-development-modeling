@@ -46,6 +46,7 @@ class EdimUserManager(StringIDMixin, BaseUserManager[AuthUser, str]):
     async def on_after_forgot_password(self, user: AuthUser, token: str, request: Request | None = None) -> None:
         logger.info("auth.forgot_password user_id=%s", user.user_id)
         _record_pending(request, user, "reset", token)
+        await _maybe_send_reset_email(request, user, token)
 
     async def on_after_reset_password(self, user: AuthUser, request: Request | None = None) -> None:
         logger.info("auth.reset_password user_id=%s", user.user_id)
@@ -61,6 +62,29 @@ def _record_pending(request: Request | None, user: AuthUser, kind: str, token: s
     if store is None:
         return
     store[str(user.id)] = {"kind": kind, "token": token, "user_id": user.user_id, "email": user.email}
+
+
+async def _maybe_send_reset_email(request: Request | None, user: AuthUser, token: str) -> bool:
+    if request is None:
+        return False
+    settings = getattr(request.app.state, "settings", None)
+    if settings is None:
+        return False
+    from .email_sender import is_configured, send_reset_email
+
+    if not is_configured(settings):
+        return False
+    base = str(getattr(settings, "auth_email_base_url", "") or "").strip().rstrip("/")
+    if not base:
+        base = str(request.base_url).rstrip("/")
+    reset_link = f"{base}/auth/reset-password?token={token}"
+    sent = await send_reset_email(settings, str(user.email or ""), reset_link)
+    flags = getattr(request.app.state, "auth_email_last_sent", None)
+    if flags is None:
+        flags = {}
+        request.app.state.auth_email_last_sent = flags
+    flags[str(user.id)] = bool(sent)
+    return sent
 
 
 async def get_user_manager(

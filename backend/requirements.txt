@@ -24,6 +24,7 @@ azure-appconfiguration>=1.6.0
 azure-identity>=1.15.0
 azure-servicebus>=7.12.0
 azure-storage-blob>=12.19.0
+azure-communication-email>=1.0.0
 
 # Persistence stack (plan chapters 3, 5, 6, 8: PostgreSQL, Alembic migrations)
 SQLAlchemy>=2.0.30,<2.1

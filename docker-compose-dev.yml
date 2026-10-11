@@ -155,6 +155,9 @@ services:
       EDIM_AUTH_DEV_TOKEN_DISPLAY: ${EDIM_AUTH_DEV_TOKEN_DISPLAY:-true}
       EDIM_AUTH_ADMIN_EMAIL: ${EDIM_AUTH_ADMIN_EMAIL:-daniele.ciminieri@gmail.com}
       EDIM_AUTH_SEED_PASSWORD: ${EDIM_AUTH_SEED_PASSWORD:-}
+      EDIM_AUTH_EMAIL_CONNECTION_STRING: ${EDIM_AUTH_EMAIL_CONNECTION_STRING:-}
+      EDIM_AUTH_EMAIL_SENDER: ${EDIM_AUTH_EMAIL_SENDER:-}
+      EDIM_AUTH_EMAIL_BASE_URL: ${EDIM_AUTH_EMAIL_BASE_URL:-}
 
       # PYTHONPATH includes /app/model_runtime so 'edim_model' is importable
       # as a top-level package regardless of the mounted volume layout.
