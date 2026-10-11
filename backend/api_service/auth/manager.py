@@ -24,7 +24,7 @@ class StringIDMixin:
 
 
 class EdimUserManager(StringIDMixin, BaseUserManager[AuthUser, str]):
-    password_min_length: int = 10
+    password_min_length: int = 8
 
     async def validate_password(self, password: str, user: Union[UserCreate, AuthUser]) -> None:
         if len(password) < self.password_min_length:

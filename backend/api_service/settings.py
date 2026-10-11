@@ -158,7 +158,7 @@ class Settings:
     auth_session_ttl_seconds: int = 43200
     auth_cookie_name: str = "edim_session"
     auth_cookie_secure: bool = True
-    auth_password_min_length: int = 10
+    auth_password_min_length: int = 8
     auth_reset_ttl_seconds: int = 3600
     auth_invite_ttl_seconds: int = 172800
     auth_dev_token_display: bool = True
@@ -299,7 +299,7 @@ def get_settings() -> Settings:
         auth_session_ttl_seconds=_env_int("EDIM_AUTH_SESSION_TTL_SECONDS", int(_cfg(runtime_config, ["auth", "session_ttl_seconds"], 43200)), minimum=60),
         auth_cookie_name=(os.getenv("EDIM_AUTH_COOKIE_NAME") or str(_cfg(runtime_config, ["auth", "cookie_name"], "edim_session")) or "edim_session").strip() or "edim_session",
         auth_cookie_secure=_env_bool("EDIM_AUTH_COOKIE_SECURE", bool(_cfg(runtime_config, ["auth", "cookie_secure"], True))),
-        auth_password_min_length=_env_int("EDIM_AUTH_PASSWORD_MIN_LENGTH", int(_cfg(runtime_config, ["auth", "password_min_length"], 10)), minimum=6),
+        auth_password_min_length=_env_int("EDIM_AUTH_PASSWORD_MIN_LENGTH", int(_cfg(runtime_config, ["auth", "password_min_length"], 8)), minimum=6),
         auth_reset_ttl_seconds=_env_int("EDIM_AUTH_RESET_TTL_SECONDS", int(_cfg(runtime_config, ["auth", "reset_ttl_seconds"], 3600)), minimum=60),
         auth_invite_ttl_seconds=_env_int("EDIM_AUTH_INVITE_TTL_SECONDS", int(_cfg(runtime_config, ["auth", "invite_ttl_seconds"], 172800)), minimum=60),
         auth_dev_token_display=_env_bool("EDIM_AUTH_DEV_TOKEN_DISPLAY", bool(_cfg(runtime_config, ["auth", "dev_token_display"], True))),

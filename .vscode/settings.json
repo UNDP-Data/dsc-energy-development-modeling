@@ -1,5 +1,8 @@
 {
     "chat.tools.terminal.autoApprove": {
         "docker compose": true
-    }
+    },
+    "markdown-pdf.styles": [
+        ".vscode/markdown-pdf.css"
+    ]
 }

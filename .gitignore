@@ -71,3 +71,7 @@ feedback/
 .local
 __azurite_data__
 outputs/
+.vscode/
+
+# Windows PowerShell deploy scripts (standard is bash; ps1 kept locally only)
+scripts/*.ps1

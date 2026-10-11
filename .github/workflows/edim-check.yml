@@ -40,7 +40,7 @@ jobs:
           npm ci
           npm run check
 
-      - name: Zip-shape check (mirrors scripts/deploy_azure_appservice.ps1)
+      - name: Zip-shape check (mirrors scripts/deploy_azure_appservice.sh)
         run: |
           python - <<'PY'
           import pathlib
