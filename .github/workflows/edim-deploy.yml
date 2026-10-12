@@ -1,0 +1,147 @@
+name: EDIM deploy
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: edim-deploy
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: undphq220rg03
+  VM_NAME: undphq220vm001
+  DEPLOY_REMOTE: https://github.com/UNDP-Data/dsc-energy-development-modeling.git
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          pip install -U pip
+          pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          pip install --no-build-isolation -e ./model_runtime
+
+      - name: Backend tests
+        run: PYTHONPATH=backend:model_runtime python -m pytest backend/tests -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend check (read-only)
+        run: |
+          cd frontend
+          npm ci
+          npm run check
+
+      - name: Zip-shape check (mirrors scripts/deploy_azure_appservice.sh)
+        run: |
+          python - <<'PY'
+          import pathlib
+          repo = pathlib.Path(".")
+          api_req = repo / "backend" / "requirements-api.txt"
+          assert api_req.exists(), "missing backend/requirements-api.txt"
+          req_lines = [
+              line.split("#", 1)[0].strip().lower()
+              for line in api_req.read_text(encoding="utf-8").splitlines()
+          ]
+          req_lines = [line for line in req_lines if line]
+          for pkg in ("calliope", "pyomo", "highspy", "xarray", "netcdf4"):
+              assert not any(pkg in line for line in req_lines), (
+                  f"solver package {pkg!r} must not be in requirements-api.txt"
+              )
+          overrides = repo / "model_runtime" / "model_modules" / "calliope" / "Calliope-Africa-main" / "overrides.yaml"
+          assert overrides.exists(), "missing Calliope overrides.yaml needed by /api/scenarios"
+          print("zip-shape ok")
+          PY
+
+      - name: Whitespace check
+        run: git diff --check
+
+  deploy-api:
+    needs: [check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage deploy package
+        run: bash scripts/stage_api_package.sh
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: undphq220api001
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: outputs/azure-deploy/edim-api.zip
+
+  deploy-worker:
+    needs: [deploy-api]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Azure login (OIDC via gh-edim-deploy)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check VM power state
+        id: power
+        run: |
+          state="$(az vm get-instance-view -g "$RESOURCE_GROUP" -n "$VM_NAME" --query "instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]" -o tsv)"
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          echo "VM power state: $state"
+
+      - name: Skip (VM not running)
+        if: steps.power.outputs.state != 'VM running'
+        run: echo "VM is '${{ steps.power.outputs.state }}' - leaving it off, nothing to do."
+
+      - name: Rebuild worker image for ${{ github.ref_name }}
+        if: steps.power.outputs.state == 'VM running'
+        env:
+          DEPLOY_TAG: ${{ github.ref_name }}
+        run: |
+          read -r -d '' SCRIPT <<EOF || true
+          set -euo pipefail
+          cd /opt/edim
+          git remote set-url origin "$DEPLOY_REMOTE"
+          git fetch --force origin "refs/tags/$DEPLOY_TAG:refs/tags/$DEPLOY_TAG"
+          git checkout --detach "refs/tags/$DEPLOY_TAG"
+          git log -1 --oneline
+          docker build -f worker/Dockerfile -t edim-worker:latest .
+          systemctl restart edim-worker
+          sleep 5
+          systemctl --no-pager status edim-worker || true
+          EOF
+          payload="$(printf '%s' "$SCRIPT" | base64 -w0)"
+          az vm run-command invoke -g "$RESOURCE_GROUP" -n "$VM_NAME" \
+            --command-id RunShellScript \
+            --scripts "echo '$payload' | base64 -d > /tmp/edim-update-image.sh && bash /tmp/edim-update-image.sh" \
+            --query "value[0].message" -o tsv
+
+      - name: Verify worker
+        if: steps.power.outputs.state == 'VM running'
+        run: |
+          az vm run-command invoke -g "$RESOURCE_GROUP" -n "$VM_NAME" \
+            --command-id RunShellScript \
+            --scripts "systemctl --no-pager is-active edim-worker && docker ps --filter name=edim-worker --format '{{.Names}} {{.Status}}' && docker logs edim-worker --tail 20" \
+            --query "value[0].message" -o tsv
