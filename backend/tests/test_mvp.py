@@ -410,7 +410,7 @@ class ScenarioReportTests(unittest.TestCase):
         )
         self.assertEqual(package["mrio_scenario_id"], "S2")
         self.assertEqual(package["target_scenario"]["scenario_id"], "S2")
-        self.assertEqual(package["mrio_direct"]["shock_mapping"]["mapping_id"], "mrio_direct_heuristic")
+        self.assertEqual(package["mrio_direct"]["shock_mapping"]["mapping_id"], "mrio_direct_heuristic_v1")
         self.assertEqual(package["mrio_direct"]["scenario"]["scenario_id"], "S2")
         self.assertGreater(package["mrio_direct"]["scenario"]["national_record_count"], 1)
         self.assertEqual(package["geography_alignment"]["alignment_level"], "africa_national_placeholder_to_calliope_locations")
@@ -420,7 +420,7 @@ class ScenarioReportTests(unittest.TestCase):
             bridge_total_shock_musd=100.0,
             direct_config={"structural_reallocation_bridge_scale": 0.25, "max_direct_to_bridge_ratio": 1.0},
         )
-        self.assertEqual(direct["method"], "mrio_direct_heuristic")
+        self.assertEqual(direct["method"], "mrio_direct_heuristic_v1")
         self.assertEqual(direct["scenario_id"], "S2")
         self.assertTrue(direct["diagnostics"]["national_placeholder_dataset"])
         self.assertGreater(len(direct["shock_rows"]), 0)
@@ -431,17 +431,11 @@ class ScenarioReportTests(unittest.TestCase):
         self.assertIn("ZA-S2", source_ids)
         self.assertIn("WF-S2", source_ids)
         with tempfile.TemporaryDirectory() as tmp:
-            write_scenario_artifacts(Path(tmp), package, direct)
+            artifacts = write_scenario_artifacts(Path(tmp), package, direct)
             self.assertTrue((Path(tmp) / "scenario_package.json").exists())
             self.assertTrue((Path(tmp) / "scenario" / "mrio_direct_inputs.json").exists())
             self.assertTrue((Path(tmp) / "scenario" / "mrio_direct_shocks.csv").exists())
-            registry = ArtifactRegistry("1234abcd", Path(tmp), {"artifacts": {"manifest": {}}})
-            write_scenario_artifacts(Path(tmp), package, direct, artifact_registry=registry)
-            self.assertTrue((Path(tmp) / "inputs" / "scenario_package.json").exists())
-            self.assertTrue((Path(tmp) / "artifacts" / "intermediate" / "scenario" / "mrio_direct_inputs.json").exists())
-            self.assertTrue((Path(tmp) / "artifacts" / "intermediate" / "scenario" / "mrio_direct_shocks.csv").exists())
-            artifact_ids = {row["artifact_id"] for row in registry.exposed_descriptors()}
-            self.assertIn("scenario_package_json", artifact_ids)
+            self.assertIn("scenario_package_json", artifacts)
 
     def test_integrated_catalog_splits_targets_from_mrio_shock_mapping(self):
         repo_root = Path(__file__).resolve().parents[2]
@@ -450,23 +444,16 @@ class ScenarioReportTests(unittest.TestCase):
             _repo_calliope_root(repo_root),
             energy_scenarios=[{"key": "new_links", "title": "New links"}],
         )
-        self.assertEqual(catalog["schema_version"], "model_scenario_catalog")
+        self.assertEqual(catalog["schema_version"], "integrated_scenario_catalog_v1")
         self.assertEqual(catalog["defaults"]["mrio_scenario_id"], "S2")
         self.assertEqual(catalog["defaults"]["target_scenario_id"], "S2")
-        self.assertEqual(catalog["defaults"]["mrio_shock_mapping_id"], "mrio_direct_heuristic")
-        self.assertGreater(catalog["metadata"]["report"]["africa_national_country_count"], 50)
-        self.assertIn("scenario_channels", catalog)
-        self.assertIn("module_configurations", catalog)
-        channel_keys = {row["config_key"] for row in catalog["scenario_channels"]}
-        self.assertIn("scenario.energy_scenario_key", channel_keys)
-        self.assertIn("scenario.target_scenario_id", channel_keys)
-        self.assertNotIn("target_scenarios", catalog)
-        target_channel = next(row for row in catalog["scenario_channels"] if row["config_key"] == "scenario.target_scenario_id")
-        self.assertEqual([row["value"] for row in target_channel["options"]], ["S1", "S2"])
-        self.assertIn("target_profiles", target_channel["options"][1]["metadata"])
-        shock_channel = next(row for row in catalog["scenario_channels"] if row["config_key"] == "scenario.mrio_shock_mapping_id")
-        self.assertEqual(shock_channel["options"][0]["value"], "mrio_direct_heuristic")
-        self.assertIn("scenario.mrio_shock_mapping_id", channel_keys)
+        self.assertEqual(catalog["defaults"]["mrio_shock_mapping_id"], "mrio_direct_heuristic_v1")
+        self.assertGreater(catalog["report"]["africa_national_country_count"], 50)
+        self.assertIn("target_scenarios", catalog)
+        self.assertIn("mrio_shock_mappings", catalog)
+        self.assertEqual([row["scenario_id"] for row in catalog["target_scenarios"]], ["S1", "S2"])
+        self.assertIn("target_profiles", catalog["target_scenarios"][1])
+        self.assertEqual(catalog["mrio_shock_mappings"][0]["mapping_id"], "mrio_direct_heuristic_v1")
         self.assertTrue((repo_root / "inputs" / "generated" / "africa_national_mrio_placeholder_scenarios.json").exists())
 
     def test_geography_alignment_fans_out_national_and_regional_scenarios(self):
