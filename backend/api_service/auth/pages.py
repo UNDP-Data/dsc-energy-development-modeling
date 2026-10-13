@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -38,6 +39,13 @@ def _copy_cookies(target, source) -> None:
 async def _guard(request: Request):
     context = await resolve_session_context(request)
     if context is None:
+        original = str(request.url.path or "")
+        query = str(request.url.query or "")
+        if original.startswith("/") and original != "/auth/login":
+            nxt = original + (f"?{query}" if query else "")
+            return None, RedirectResponse(
+                url=f"/auth/login?next={quote(nxt, safe='')}", status_code=303
+            )
         return None, RedirectResponse(url="/auth/login", status_code=303)
     return context, None
 

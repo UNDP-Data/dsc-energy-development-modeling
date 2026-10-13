@@ -56,6 +56,7 @@
               class="btn btn-ghost btn-sm"
               data-bs-toggle="modal"
               data-bs-target="#set-password-modal"
+              data-action="/auth/admin/users/{{ u.id }}/password"
               data-user-id="{{ u.id }}"
               data-user-name="{{ u.user_id }}"
             >
@@ -175,7 +176,7 @@
         <h2 class="modal-title">Set password</h2>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form method="post" action="/auth/admin/users/password">
+      <form method="post" action="">
         <div class="modal-body">
           <p class="edim-cell-sub edim-modal-user">Choose a new password for <strong data-user-label></strong>.</p>
           <div class="mb-3">
